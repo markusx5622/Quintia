@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  plan        String   @default("standard")
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  users       User[]
+  projects    Project[]
+}
+
+model User {
+  id          String   @id @default(uuid())
+  tenant_id   String
+  email       String
+  name        String
+  role        String   @default("analyst") // admin, analyst, viewer
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  tenant      Tenant   @relation(fields: [tenant_id], references: [id])
+  @@index([tenant_id])
+  @@unique([tenant_id, email])
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  tenant_id   String
+  name        String
+  description String?
+  status      String   @default("draft") // draft, processing, completed, failed
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  tenant              Tenant              @relation(fields: [tenant_id], references: [id])
+  raw_inputs          RawInput[]
+  jobs                Job[]
+  ontology_results    OntologyResult[]
+  process_graphs      ProcessGraph[]
+  diagnostic_results  DiagnosticResult[]
+  scenarios           Scenario[]
+  financial_results   FinancialResult[]
+  reports             Report[]
+  @@index([tenant_id])
+}
+
+model RawInput {
+  id                String   @id @default(uuid())
+  tenant_id         String
+  project_id        String
+  input_type        String   // "narrative", "document"
+  content           String   // sanitized text content
+  original_filename String?
+  mime_type         String?
+  created_at        DateTime @default(now())
+  
+  project           Project  @relation(fields: [project_id], references: [id])
+  @@index([tenant_id])
+  @@index([project_id])
+}
+
+model OntologyResult {
+  id          String   @id @default(uuid())
+  tenant_id   String
+  project_id  String
+  job_id      String
+  data        String   // JSON: OntologyOutput
+  version     Int      @default(1)
+  created_at  DateTime @default(now())
+  
+  project     Project  @relation(fields: [project_id], references: [id])
+  job         Job      @relation(fields: [job_id], references: [id])
+  @@index([tenant_id])
+  @@index([project_id])
+  @@index([job_id])
+}
+
+model ProcessGraph {
+  id          String   @id @default(uuid())
+  tenant_id   String
+  project_id  String
+  job_id      String
+  data        String   // JSON: ProcessGraphOutput (includes CanonicalGraphOutput)
+  version     Int      @default(1)
+  created_at  DateTime @default(now())
+  
+  project     Project  @relation(fields: [project_id], references: [id])
+  job         Job      @relation(fields: [job_id], references: [id])
+  @@index([tenant_id])
+  @@index([project_id])
+  @@index([job_id])
+}
+
+model DiagnosticResult {
+  id          String   @id @default(uuid())
+  tenant_id   String
+  project_id  String
+  job_id      String
+  data        String   // JSON: DiagnosticsOutput
+  version     Int      @default(1)
+  created_at  DateTime @default(now())
+  
+  project     Project  @relation(fields: [project_id], references: [id])
+  job         Job      @relation(fields: [job_id], references: [id])
+  @@index([tenant_id])
+  @@index([project_id])
+  @@index([job_id])
+}
+
+model Scenario {
+  id                     String   @id @default(uuid())
+  tenant_id              String
+  project_id             String
+  job_id                 String
+  name                   String         // e.g. "Automatización de validación manual"
+  description            String
+  target_process_node_ids String        // JSON: string[] — CPG nodes this scenario affects
+  improvement_type       String         // "automation", "elimination", "parallelization", "outsourcing", "optimization"
+  assumptions            String         // JSON: ScenarioAssumptions
+  levers                 String         // JSON: ImprovementLever[]
+  // --- Financial inputs for deterministic engine ---
+  current_annual_cost    Float          // EUR — estimated current cost of affected process area
+  projected_annual_cost  Float          // EUR — estimated cost after improvement
+  implementation_cost    Float          // EUR — one-time cost to implement
+  additional_annual_benefits Float @default(0) // EUR — non-cost benefits (revenue, etc.)
+  created_at             DateTime @default(now())
+  
+  project                Project          @relation(fields: [project_id], references: [id])
+  job                    Job              @relation(fields: [job_id], references: [id])
+  financial_results      FinancialResult[]
+  @@index([tenant_id])
+  @@index([project_id])
+  @@index([job_id])
+}
+
+model FinancialResult {
+  id                String   @id @default(uuid())
+  tenant_id         String
+  project_id        String
+  job_id            String
+  scenario_id       String
+  status            String   // "viable", "non_viable", "not_applicable"
+  annual_savings    Float    // EUR, always computed
+  roi_percentage    Float?   // %, 2 decimal. NULL if status = "not_applicable"
+  payback_months    Float?   // months, 1 decimal. NULL if status = "non_viable"
+  formula_version   String   // e.g. "1.0.0"
+  input_basis       String   // JSON: FinancialInput snapshot at calculation time
+  status_reason     String?  // human-readable explanation
+  created_at        DateTime @default(now())
+  
+  project           Project  @relation(fields: [project_id], references: [id])
+  job               Job      @relation(fields: [job_id], references: [id])
+  scenario          Scenario @relation(fields: [scenario_id], references: [id])
+  @@index([tenant_id])
+  @@index([project_id])
+  @@index([job_id])
+  @@index([scenario_id])
+}
+
+model Report {
+  id          String   @id @default(uuid())
+  tenant_id   String
+  project_id  String
+  job_id      String
+  data        String   // JSON: ReportOutput
+  status      String   @default("draft") // draft, final
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  project     Project  @relation(fields: [project_id], references: [id])
+  job         Job      @relation(fields: [job_id], references: [id])
+  @@index([tenant_id])
+  @@index([project_id])
+  @@index([job_id])
+}
+
+model Job {
+  id                  String   @id @default(uuid())
+  tenant_id           String
+  project_id          String
+  current_stage       String   @default("ontology")
+  status              String   @default("pending") // pending, running, completed, failed, escalated
+  retry_count         Int      @default(0)
+  stage_outputs       String   @default("{}") // JSON: map of stage → output reference id
+  validation_results  String   @default("{}") // JSON: map of stage → validation result
+  error_message       String?
+  started_at          DateTime?
+  completed_at        DateTime?
+  locked_until        DateTime?
+  locked_by           String?
+  last_heartbeat      DateTime?
+  priority            Int      @default(0)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  
+  project             Project            @relation(fields: [project_id], references: [id])
+  ontology_results    OntologyResult[]
+  process_graphs      ProcessGraph[]
+  diagnostic_results  DiagnosticResult[]
+  scenarios           Scenario[]
+  financial_results   FinancialResult[]
+  reports             Report[]
+  audit_logs          AuditLog[]
+  @@index([tenant_id])
+  @@index([project_id])
+  @@index([status])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  tenant_id   String
+  job_id      String?
+  event_type  String   // "stage_started", "stage_completed", "validation_failed", "law4_violation", "financial_calculated", "retry", "escalation"
+  stage       String?
+  severity    String   @default("info") // info, warning, error, critical
+  details     String   // JSON: event-specific data
+  created_at  DateTime @default(now())
+  
+  job         Job?     @relation(fields: [job_id], references: [id])
+  @@index([tenant_id])
+  @@index([job_id])
+  @@index([event_type])
+  @@index([severity])
+}
