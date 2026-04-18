@@ -12,8 +12,8 @@ export class GeminiProvider implements LLMProvider {
       throw new Error("GEMINI_API_KEY is missing from environment.");
     }
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    // Allow configuration via env, fallback to Flash 1.5 which is robust for JSON
-    this.modelName = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+    // Allow configuration via env, fallback to Flash 2.5 as requested
+    this.modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash";
   }
 
   async complete(request: LLMCompletionRequest): Promise<LLMCompletionResponse> {
