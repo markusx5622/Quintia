@@ -31,24 +31,45 @@ export class PipelineOrchestrator {
     const job = await prisma.job.findUnique({ where: { id: jobId } });
     if (!job) throw new Error("Job not found");
 
-    // Logic for each stage
-    switch (stageName) {
-      case "ontology":
-        return this.executeOntology(job, userPromptSuffix);
-      case "process_graph":
-        return this.executeProcessGraph(job, userPromptSuffix);
-      case "diagnostics":
-        return this.executeDiagnostics(job, userPromptSuffix);
-      case "scenarios":
-        return this.executeScenarios(job, userPromptSuffix);
-      case "recalculation":
-        return this.executeRecalculation(job);
-      case "critic":
-        return this.executeCritic(job, userPromptSuffix);
-      case "synthesis":
-        return this.executeSynthesis(job);
-      default:
-        throw new Error(`Unknown stage: ${stageName}`);
+    // Track that the stage has started
+    await AuditService.log({
+      tenantId: job.tenant_id,
+      jobId: job.id,
+      eventType: AuditEventType.STAGE_STARTED,
+      stage: stageName,
+      details: { message: `Engine version: Gemini Multi-Layer Throttling + Jitter` }
+    });
+
+    try {
+      // Logic for each stage
+      switch (stageName) {
+        case "ontology":
+          return await this.executeOntology(job, userPromptSuffix);
+        case "process_graph":
+          return await this.executeProcessGraph(job, userPromptSuffix);
+        case "diagnostics":
+          return await this.executeDiagnostics(job, userPromptSuffix);
+        case "scenarios":
+          return await this.executeScenarios(job, userPromptSuffix);
+        case "recalculation":
+          return await this.executeRecalculation(job);
+        case "critic":
+          return await this.executeCritic(job, userPromptSuffix);
+        case "synthesis":
+          return await this.executeSynthesis(job);
+        default:
+          throw new Error(`Unknown stage: ${stageName}`);
+      }
+    } catch (error: any) {
+      await AuditService.log({
+        tenantId: job.tenant_id,
+        jobId: job.id,
+        eventType: AuditEventType.STAGE_FAILED,
+        stage: stageName,
+        severity: "error",
+        details: { error: error.message, stack: error.stack }
+      });
+      throw error; // Re-throw for Inngest retry logic
     }
   }
 
