@@ -7,12 +7,13 @@ import { PipelineOrchestrator } from "../services/pipeline-orchestrator";
  */
 export const quintiaPipeline = inngest.createFunction(
   { 
-    id: "quintia-pipeline",
+    id: "quintia-pipeline-v2",
     concurrency: 1,
     triggers: [{ event: "pipeline/job.started" }]
   },
   async ({ event, step }) => {
     const { jobId } = event.data;
+    console.log(`[Inngest] Starting pipeline for Job: ${jobId}`);
 
     // Stage 1: Ontology
     await step.run("ontology", async () => {
