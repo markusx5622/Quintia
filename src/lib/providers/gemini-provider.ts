@@ -55,8 +55,9 @@ export class GeminiProvider implements LLMProvider {
       // Basic error mapping for Gemini SDK
       const msg = error.message || "";
       
-      if (msg.includes("429") || msg.includes("Quota exceeded")) {
-        throw new QuintiaProviderError("RATE_LIMIT", "Gemini rate limit exceeded", error);
+      if (msg.includes("429") || msg.includes("Quota exceeded") || msg.includes("Rate limit")) {
+        const type = msg.includes("TPM") ? "Tokens per Minute" : msg.includes("RPD") ? "Requests per Day" : "Requests per Minute";
+        throw new QuintiaProviderError("RATE_LIMIT", `Gemini rate limit exceeded (${type})`, error);
       }
       if (msg.includes("401") || msg.includes("API key not valid")) {
         throw new QuintiaProviderError("AUTH_ERROR", "Invalid Gemini API key", error);

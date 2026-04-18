@@ -8,7 +8,7 @@ import { PipelineOrchestrator } from "../services/pipeline-orchestrator";
 export const quintiaPipeline = inngest.createFunction(
   { 
     id: "quintia-pipeline",
-    concurrency: 2,
+    concurrency: 1,
     triggers: [{ event: "pipeline/job.started" }]
   },
   async ({ event, step }) => {

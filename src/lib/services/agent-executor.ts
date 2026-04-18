@@ -11,8 +11,8 @@ export class AgentExecutorError extends Error {
 }
 
 export class AgentExecutor {
-  private static readonly MAX_TRANSIENT_RETRIES = 3;
-  private static readonly BASE_BACKOFF_MS = 2000;
+  private static readonly MAX_TRANSIENT_RETRIES = 5;
+  private static readonly BASE_BACKOFF_MS = 5000;
 
   static async execute<T>(
     systemPrompt: string,
@@ -56,8 +56,14 @@ export class AgentExecutor {
         if (retryCount >= this.MAX_TRANSIENT_RETRIES) {
           throw new AgentExecutorError(`TRANSIENT_FAILURE: Provider failed after ${this.MAX_TRANSIENT_RETRIES} attempts. ${error.message}`);
         }
-        const delay = this.BASE_BACKOFF_MS * Math.pow(2, retryCount);
-        console.warn(`[AgentExecutor] Transient error from ${provider.providerId} (${error.code}). Retrying in ${delay}ms...`);
+        
+        // Exponential backoff + jitter (±20%)
+        const exponentialDelay = this.BASE_BACKOFF_MS * Math.pow(2, retryCount);
+        const jitter = exponentialDelay * 0.2 * (Math.random() * 2 - 1);
+        const delay = Math.max(0, exponentialDelay + jitter);
+        
+        console.warn(`[AgentExecutor] Transient error from ${provider.providerId} (${error.code}). Retrying in ${Math.round(delay)}ms (Retry ${retryCount + 1}/${this.MAX_TRANSIENT_RETRIES})...`);
+        
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.execute(systemPrompt, userPrompt, schema, retryCount + 1);
       }
