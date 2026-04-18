@@ -2,16 +2,15 @@
   "name": "quintia",
   "version": "0.1.0",
   "private": true,
-  
-"scripts": {
+  "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "postinstall": "prisma generate"
-
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",
+    "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^6.13.0",
     "@xyflow/react": "^12.10.2",
     "dagre": "^0.8.5",
